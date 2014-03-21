@@ -13,6 +13,11 @@ License URL: http://creativecommons.org/licenses/by/3.0/
 <link href='http://fonts.googleapis.com/css?family=Open+Sans:400,600' rel='stylesheet' type='text/css'>
 <link href="../web/css/style.css" rel="stylesheet" type="text/css" media="all" />
 <script type="text/javascript" src="../web/js/jquery.min.js"></script>
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/css/bootstrap.min.css">
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="http://netdna.bootstrapcdn.com/bootstrap/3.1.1/js/bootstrap.min.js"></script>
 	 	<!---strat-slider---->
 	    <link rel="stylesheet" type="text/css" href="../web/css/slider.css" />
 		<script type="text/javascript" src="../web/js/modernizr.custom.28468.js"></script>
@@ -31,13 +36,92 @@ License URL: http://creativecommons.org/licenses/by/3.0/
 <!-- start top_js_button -->
 <script type="text/javascript" src="../web/js/move-top.js"></script>
 <script type="text/javascript" src="../web/js/easing.js"></script>
+<script type="text/javascript" src="https://www.google.com/jsapi"></script>
    <script type="text/javascript">
+   function formatAMPM(date) {
+  var hours = date.getHours();
+  var ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12;
+  hours = hours ? hours : 12; // the hour '0' should be '12'
+  return hours+' '+ ampm;
+}
+google.load("visualization", "1", {packages:["corechart"]});
+    function drawChart(inputData,divId) {
+        var data = new google.visualization.DataTable();
+        data.addColumn('datetime','Time');
+		data.addColumn('number','Hash Rate');
+		data.addRows(inputData);
+		var options={'width':700,'height':200,legend: {position: 'none'},
+		 	"vAxis":{"title":"Hash Rate","minValue":0},
+    		"hAxis":{"title":"Last 24 hours",
+    		 format: 'h aa'
+    	}
+	};
+ 	var dateFormatter = new google.visualization.DateFormat({pattern: 'h aa'});
+ dateFormatter.format(data, 0);
+        var chart = new google.visualization.AreaChart(document.getElementById(divId));
+
+        chart.draw(data,options);
+      }
 		jQuery(document).ready(function($) {
 			$(".scroll").click(function(event){		
 				event.preventDefault();
 				$('html,body').animate({scrollTop:$(this.hash).offset().top},1200);
 			});
+				$.ajax({
+  dataType: "json",
+  url: "http://reassent.no-ip.biz:7777/web/graph_data/miner_hash_rates/last_day",
+  success: function(data)
+  {
+  	data.sort(function(a,b){return parseFloat(a[0])-parseFloat(b[0]);});
+  	var user_array=new Array();
+  	for(var i=0;i<data.length;i++)
+  	{
+  		var users=$.map(data[i][1],function(value,key){return key;});
+  		for(var j=0;j<users.length;j++)
+  		{
+  			if(user_array.indexOf(users[j])==-1)
+  			{
+  				user_array.push(users[j]);
+  			}
+  		}
+  		data[i][0]=new Date(data[i][0]*1000);
+  	}
+  	var hash_rates=new Array();;
+  	var total=new Array();
+  	for(var i=0;i<data.length;i++)
+  	{
+  		var users=$.map(data[i][1],function(value,key){return key;});
+  		var hashes=$.map(data[i][1],function(value,key){return value;});
+  		for(var j=0;j<user_array.length;j++)
+  		{	
+  			if(i==0) {hash_rates[j]=new Array();total[j]=0;}
+  			var x=users.indexOf(user_array[j]);
+  			if(x!=-1)
+  			{
+  				if(i%24==0)hash_rates[j][i/24]=new Array(data[i][0],Math.round( hashes[x]/1000/1000 *100)/100);
+  				total[j]+=hashes[x];
+  			}
+  			else if(i%24==0)hash_rates[j][i/24]=new Array(data[i][0],0);
+
+  		}
+  	}
+  	var html="<div class='row'>&nbsp;</div><div class='container'><table class='table table-striped table-bordered'><tr><th>Username</th><th>Hash Rate</th><th>Average</th><th>24 hour profits</th></tr>";
+  	for(var j=0;j<user_array.length;j++)
+  	{
+  		html+="<tr><td>"+user_array[j]+"</td><td><div id='user"+j+"'></div></td><td>"+Math.round( total[j]/data.length/1000/1000 * 100) / 100+" MH/s</td><td>0 BTC</td></tr>";
+  	}
+  	html+="</table></div>";
+  	document.getElementById("json").innerHTML=html;
+  	for(var j=0;j<user_array.length;j++)
+  	{
+  		drawChart(hash_rates[j],'user'+j);
+  	}
+  }
+});
 		});
+	
+
 	</script>
 </head>
 <body>
@@ -125,6 +209,7 @@ License URL: http://creativecommons.org/licenses/by/3.0/
 </div>
 </div>
 </div>
+<div id="json"></div>
 <!-- start slider -->
 <div class="slider_bg">
 <div class="wrap">
